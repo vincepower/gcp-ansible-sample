@@ -1,0 +1,6 @@
+---
+- name: Create a virtual machine
+  import_playbook: provision.yml
+
+- name: Ensure nginx is installed and running
+  import_playbook: setup.yml
