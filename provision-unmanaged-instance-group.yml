@@ -30,7 +30,10 @@
   # Manually adding members, don't see how to do it with a module
   #
   - name: Manually adding instances (Can fail when already in instance group)
-    command: gcloud compute instance-groups unmanaged add-instances ansible-gfr-instancegroup --instances ansible-vm1,ansible-vm2 --zone "{{ gcp_zone }}"
+    command: gcloud compute instance-groups unmanaged add-instances ansible-gfr-instancegroup --instances ansible-vm1 --zone "{{ gcp_zone }}"
+    ignore_errors: yes
+  - name: Manually adding instances (Can fail when already in instance group)
+    command: gcloud compute instance-groups unmanaged add-instances ansible-gfr-instancegroup --instances ansible-vm2 --zone "{{ gcp_zone }}"
     ignore_errors: yes
   #
   # End of manual add
