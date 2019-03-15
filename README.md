@@ -1,4 +1,4 @@
-# cloud-gcp
+# gcp-ansible-sample
 
 This intermediate-level Ansible playbook example demonstrates for provisioning an instance group, two virtual machines, and some supporting items into a new Google Cloud Platform VPC. Once provisioned this example will use an official third party role from Ansible Galaxy to install and start nginx.
 
