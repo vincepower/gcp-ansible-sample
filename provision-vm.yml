@@ -1,0 +1,129 @@
+- name: Create three vm instances
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    gcp_auth_kind: serviceaccount
+    gcp_zone: "us-central1-a"
+    gcp_region: "us-central1"
+    gcp_ssh_key: "{{ lookup('file', '~/.ssh/google_compute_engine.pub') }}"
+
+  tasks:
+  - name: Create disk for vm1
+    gcp_compute_disk:
+      name: 'ansible-vm1-disk'
+      size_gb: 50
+      source_image: 'projects/centos-cloud/global/images/family/centos-7'
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: vm1disk
+  - name: Create disk for vm2
+    gcp_compute_disk:
+      name: 'ansible-vm2-disk'
+      size_gb: 50
+      source_image: 'projects/centos-cloud/global/images/family/centos-7'
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: vm2disk
+  - name: Create address for vm1
+    gcp_compute_address:
+      name: 'ansible-vm1-ip'
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: vm1ip
+  - name: Create address for vm2
+    gcp_compute_address:
+      name: 'ansible-vm2-ip'
+      region: "{{ gcp_region }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: vm2ip
+  - name: Create instance vm1
+    gcp_compute_instance:
+      name: ansible-vm1
+      machine_type: n1-standard-1
+      disks:
+      - auto_delete: true
+        boot: true
+        source: "{{ vm1disk }}"
+      network_interfaces:
+      - network: "{{ network }}"
+        access_configs:
+        - name: External NAT
+          nat_ip: "{{ vm1ip }}"
+          type: ONE_TO_ONE_NAT
+      tags:
+        items:
+        - http-server
+        - https-server
+      metadata:
+        items:
+        - key: ssh-keys
+          value: "gcpuser:{{ gcp_ssh_key }}"
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: vm1
+  - name: Create instance vm2
+    gcp_compute_instance:
+      name: ansible-vm2
+      machine_type: n1-standard-1
+      disks:
+      - auto_delete: true
+        boot: true
+        source: "{{ vm2disk }}"
+      network_interfaces:
+      - network: "{{ network }}"
+        access_configs:
+        - name: External NAT
+          nat_ip: "{{ vm2ip }}"
+          type: ONE_TO_ONE_NAT
+      tags:
+        items:
+        - http-server
+        - https-server
+      metadata:
+        items:
+        - key: ssh-keys
+          value: "gcpuser:{{ gcp_ssh_key }}"
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: vm2
+  - name: Add vm1 to groupname
+    add_host:
+      groupname=gcp_instances
+      hostname={{ vm1.networkInterfaces[0].accessConfigs[0].natIP }}
+  - name: Add vm2 to groupname
+    add_host:
+      groupname=gcp_instances
+      hostname={{ vm2.networkInterfaces[0].accessConfigs[0].natIP }}
+
+- name: Create an instance
+  hosts: gcp_instances
+  gather_facts: no
+  tasks:
+  - name: Wait for SSH to come up
+    local_action:
+      module: wait_for
+      host: "{{ inventory_hostname }}"
+      port: 22
+      delay: 10
+      timeout: 90
+      state: started
+

@@ -1,6 +1,29 @@
 ---
-- name: Create a virtual machine
-  import_playbook: provision.yml
+- name: Create base virtual network
+  import_playbook: provision-network.yml
+
+- name: Create three virtual machines and disks
+  import_playbook: provision-vm.yml
+
+# Using unmanaged so we can show a unique page per host to prove it works
+- name: Create load balancer
+  import_playbook: provision-unmanaged-instance-group.yml
 
 - name: Ensure nginx is installed and running
-  import_playbook: setup.yml
+  import_playbook: install-nginx.yml
+
+- name: Output Results
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  tasks:
+  - name: URL to connect to the new nginx server
+    debug:
+      msg: "{{ item }}"
+    with_items:
+    - "Load Balancing Address: http://{{ forwardingrule['IPAddress'] }}/"
+    - "vm1 Web Server: http://{{ vm1.networkInterfaces[0].accessConfigs[0].natIP }}/"
+    - "vm1 Console: ssh -i ~/.ssh/google_compute_engine {{ vm1.networkInterfaces[0].accessConfigs[0].natIP }}"
+    - "vm2 Web Server: http://{{ vm2.networkInterfaces[0].accessConfigs[0].natIP }}/"
+    - "vm2 Console: ssh -i ~/.ssh/google_compute_engine {{ vm2.networkInterfaces[0].accessConfigs[0].natIP }}"
+

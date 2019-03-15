@@ -1,0 +1,95 @@
+
+- name: Create load balancer using the VMs
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    gcp_auth_kind: serviceaccount
+    gcp_zone: "us-central1-a"
+    gcp_region: "us-central1"
+    gcp_ssh_key: "{{ lookup('file', '~/.ssh/google_compute_engine.pub') }}"
+  tasks:
+  - name: Create a global address
+    gcp_compute_global_address:
+      name: "ansible-gfr-globaladdress"
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: globaladdress
+  - name: Create an instance group
+    gcp_compute_instance_group:
+      name: "ansible-gfr-instancegroup"
+      zone: "{{ gcp_zone }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: instancegroup
+  #
+  # Manually adding members, don't see how to do it with a module
+  #
+  - name: Manually adding instances (Can fail when already in instance group)
+    command: gcloud compute instance-groups unmanaged add-instances ansible-gfr-instancegroup --instances ansible-vm1,ansible-vm2 --zone "{{ gcp_zone }}"
+    ignore_errors: yes
+  #
+  # End of manual add
+  #
+  - name: Create a HTTP health check
+    gcp_compute_http_health_check:
+      name: "ansible-gfr-httphealthcheck"
+      healthy_threshold: 10
+      port: 80
+      timeout_sec: 2
+      unhealthy_threshold: 5
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: healthcheck
+  - name: Create a backend service
+    gcp_compute_backend_service:
+      name: "ansible-gfr-backendservice"
+      backends:
+        - group: "{{ instancegroup }}"
+      health_checks:
+        - "{{ healthcheck.selfLink }}"
+      enable_cdn: false
+      session_affinity: NONE
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: backendservice
+  - name: Create an URL map
+    gcp_compute_url_map:
+      name: "ansible-gfr-urlmap"
+      default_service: "{{ backendservice }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: urlmap
+  - name: Create a target HTTP proxy
+    gcp_compute_target_http_proxy:
+      name: "ansible-gfr-targethttpproxy"
+      url_map: "{{ urlmap }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: httpproxy
+  - name: Create a global forwarding rule
+    gcp_compute_global_forwarding_rule:
+      name: "ansible-gfr"
+      ip_address: "{{ globaladdress.address }}"
+      ip_protocol: TCP
+      load_balancing_scheme: "EXTERNAL"
+      port_range: 80-80
+      target: "{{ httpproxy.selfLink }}"
+      project: "{{ gcp_project }}"
+      auth_kind: "serviceaccount"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: forwardingrule
+

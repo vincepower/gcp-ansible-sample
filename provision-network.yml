@@ -1,0 +1,35 @@
+- name: Create the network and firewall rules
+  hosts: localhost
+  gather_facts: no
+  connection: local
+  vars:
+    gcp_auth_kind: serviceaccount
+    gcp_zone: "us-central1-a"
+    gcp_region: "us-central1"
+    gcp_ssh_key: "{{ lookup('file', '~/.ssh/google_compute_engine.pub') }}"
+
+  tasks:
+  - name: Create a network
+    gcp_compute_network:
+      name: 'ansible-network-vpc'
+      auto_create_subnetworks: true
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+    register: network
+  - name: Create a firewall rule
+    gcp_compute_firewall:
+      name: 'ansible-firewall-rule'
+      allowed:
+      - ip_protocol: tcp
+        ports:
+        - '22'
+        - '80'
+        - '443'
+      network: "projects/{{ gcp_project }}/global/networks/ansible-network-vpc"
+      project: "{{ gcp_project }}"
+      auth_kind: "{{ gcp_auth_kind }}"
+      service_account_file: "{{ gcp_auth_file }}"
+      state: present
+
