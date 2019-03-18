@@ -33,7 +33,13 @@ The following variables must be properly set for this example to run properly.
 
 ## Usage
 
-First step is to get the role from Ansible Galaxy for nginx.
+First step is to install some python libraries that will be needed via pip.
+
+```
+pip install google-auth requests
+```
+
+Second step is to get the role from Ansible Galaxy for nginx.
 
 ```
 ansible-galaxy install nginxinc.nginx
